@@ -41,6 +41,7 @@ const PDFNotebook = () => {
         setNumPages(null);
         setOcrTexts({});
       } else {
+        setLoading(false);
         setError('Please select a valid PDF file.');
       }
     }
