@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, ChangeEvent } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -6,33 +6,42 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
-const PDFNotebook = () => {
-  const [pdfFile, setPdfFile] = useState(null);
-  const [numPages, setNumPages] = useState(null);
-  const [ocrTexts, setOcrTexts] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+// Type definitions
+interface OcrTexts {
+  [pageNumber: number]: string;
+}
 
-  const onDocumentLoadSuccess = useCallback(({ numPages }) => {
+interface DocumentLoadSuccess {
+  numPages: number;
+}
+
+const PDFNotebook: React.FC = () => {
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [ocrTexts, setOcrTexts] = useState<OcrTexts>({});
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onDocumentLoadSuccess = useCallback(({ numPages }: DocumentLoadSuccess) => {
     setNumPages(numPages);
     setLoading(false);
     setError(null);
     // Initialize empty OCR texts for each page
-    const initialTexts = {};
+    const initialTexts: OcrTexts = {};
     for (let i = 1; i <= numPages; i++) {
       initialTexts[i] = '';
     }
     setOcrTexts(initialTexts);
   }, []);
 
-  const onDocumentLoadError = useCallback((error) => {
+  const onDocumentLoadError = useCallback((error: Error) => {
     console.error('PDF loading error:', error);
     setLoading(false);
     setError('Failed to load PDF. Please make sure the file is a valid PDF.');
   }, []);
 
-  const onFileChange = useCallback((event) => {
-    const file = event.target.files[0];
+  const onFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (file) {
       if (file.type === 'application/pdf') {
         setPdfFile(file);
@@ -55,7 +64,7 @@ const PDFNotebook = () => {
     setError(null);
   }, []);
 
-  const handleOcrTextChange = useCallback((pageNumber, text) => {
+  const handleOcrTextChange = useCallback((pageNumber: number, text: string) => {
     setOcrTexts(prev => ({
       ...prev,
       [pageNumber]: text
@@ -116,7 +125,7 @@ const PDFNotebook = () => {
                 loading={<div className="text-center py-8 text-gray-500">Loading PDF...</div>}
                 className="space-y-6"
               >
-                {Array.from({ length: numPages }, (_, index) => (
+                {numPages && Array.from({ length: numPages }, (_, index) => (
                   <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
                     <div className="mb-2 flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-600">
@@ -144,7 +153,7 @@ const PDFNotebook = () => {
               <h2 className="text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
                 OCR Text
               </h2>
-              {Array.from({ length: numPages }, (_, index) => (
+              {numPages && Array.from({ length: numPages }, (_, index) => (
                 <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
                   <div className="mb-3 flex justify-between items-center">
                     <label 
@@ -160,7 +169,7 @@ const PDFNotebook = () => {
                   <textarea
                     id={`ocr-text-${index + 1}`}
                     value={ocrTexts[index + 1] || ''}
-                    onChange={(e) => handleOcrTextChange(index + 1, e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleOcrTextChange(index + 1, e.target.value)}
                     placeholder="Enter or paste OCR text for this page..."
                     className="w-full h-64 p-3 border border-gray-300 rounded-md 
                       focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none
