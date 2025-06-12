@@ -401,7 +401,7 @@ const PDFNotebook: React.FC = () => {
                       htmlFor={`ocr-text-${index + 1}`}
                       className="block text-sm font-medium text-gray-700"
                     >
-                      Page {index + 1} OCR Text
+                      Page {index + 1} Text
                     </label>
                     <span className="text-xs text-gray-400">
                       {ocrTexts[index + 1]?.length || 0} characters
@@ -411,7 +411,7 @@ const PDFNotebook: React.FC = () => {
                     id={`ocr-text-${index + 1}`}
                     value={ocrTexts[index + 1] || ''}
                     onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleOcrTextChange(index + 1, e.target.value)}
-                    placeholder="Enter or paste OCR text for this page..."
+                    placeholder="Enter or paste text for this page..."
                     style={getTextareaStyle(index + 1)}
                     className={`w-full ${getTextareaHeight(index + 1)} p-3 border border-gray-300 rounded-md 
                       focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${getTextareaResize()}
@@ -435,7 +435,7 @@ const PDFNotebook: React.FC = () => {
                 </h3>
                 <p className="text-gray-600 mb-4">
                   Upload a PDF file to get started. You'll be able to view each page 
-                  vertically and add OCR text notes for each page.
+                  vertically and add text notes for each page.
                 </p>
                 <div className="text-sm text-gray-500">
                   <strong>Supported format:</strong> PDF files only
