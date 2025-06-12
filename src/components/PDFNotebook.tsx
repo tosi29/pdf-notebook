@@ -93,10 +93,10 @@ const PDFNotebook: React.FC = () => {
       case 'normal':
         return 'h-64'; // Fixed height like current implementation
       case 'comparison':
-        // For comparison mode, make text box height match PDF page dimensions better
-        // At scale 0.8, a typical PDF page (A4: 210mm x 297mm) renders to approximately 600px height
-        // This translates to about h-96 (384px) which is close to the PDF page height
-        return 'h-96'; // Better match for PDF page height at 0.8 scale
+        // For comparison mode, make text box height better match PDF page dimensions
+        // PDF pages at 0.8 scale typically render around 500-600px height for A4
+        // Using a custom height to better match PDF page height
+        return 'h-500'; // Much better match for PDF page height at 0.8 scale
       case 'reading':
         // For reading mode, calculate height to accommodate all content without scrolling
         const text = ocrTexts[pageNumber] || '';
