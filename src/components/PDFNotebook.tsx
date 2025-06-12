@@ -1,4 +1,4 @@
-import React, { useState, useCallback, ChangeEvent } from 'react';
+import React, { useState, useCallback, ChangeEvent, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -22,6 +22,8 @@ const PDFNotebook: React.FC = () => {
   const [ocrTexts, setOcrTexts] = useState<OcrTexts>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [enlargedPage, setEnlargedPage] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: DocumentLoadSuccess) => {
     setNumPages(numPages);
@@ -71,6 +73,38 @@ const PDFNotebook: React.FC = () => {
       [pageNumber]: text
     }));
   }, []);
+
+  const openEnlargedView = useCallback((pageNumber: number) => {
+    setEnlargedPage(pageNumber);
+    setIsModalOpen(true);
+  }, []);
+
+  const closeEnlargedView = useCallback(() => {
+    setEnlargedPage(null);
+    setIsModalOpen(false);
+  }, []);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isModalOpen) {
+        closeEnlargedView();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen, closeEnlargedView]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -132,17 +166,32 @@ const PDFNotebook: React.FC = () => {
                       <span className="text-sm font-medium text-gray-600">
                         Page {index + 1}
                       </span>
-                      <span className="text-xs text-gray-400">
-                        {index + 1} of {numPages}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 hidden sm:inline">
+                          Click to enlarge
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {index + 1} of {numPages}
+                        </span>
+                      </div>
                     </div>
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      <Page
-                        pageNumber={index + 1}
-                        className="mx-auto"
-                        scale={0.8}
-                        loading={<div className="text-center py-8 text-gray-500">Loading page...</div>}
-                      />
+                    <div className="border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all duration-200 group" onClick={() => openEnlargedView(index + 1)}>
+                      <div className="relative">
+                        <Page
+                          pageNumber={index + 1}
+                          className="mx-auto"
+                          scale={0.8}
+                          loading={<div className="text-center py-8 text-gray-500">Loading page...</div>}
+                        />
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white rounded-full p-3 shadow-lg">
+                            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -198,6 +247,49 @@ const PDFNotebook: React.FC = () => {
                 <div className="text-sm text-gray-500">
                   <strong>Supported format:</strong> PDF files only
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enlarged PDF Modal */}
+        {isModalOpen && enlargedPage && pdfFile && (
+          <div 
+            className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4"
+            onClick={closeEnlargedView}
+          >
+            <div className="relative max-w-7xl max-h-full bg-white rounded-lg shadow-2xl">
+              {/* Close button */}
+              <button
+                onClick={closeEnlargedView}
+                className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
+                aria-label="Close enlarged view"
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              {/* Page info */}
+              <div className="absolute top-4 left-4 z-10 bg-white rounded-lg px-3 py-2 shadow-lg">
+                <span className="text-sm font-medium text-gray-700">
+                  Page {enlargedPage} of {numPages}
+                </span>
+              </div>
+
+              {/* PDF content */}
+              <div 
+                className="p-4 overflow-auto max-h-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Document file={pdfFile}>
+                  <Page
+                    pageNumber={enlargedPage}
+                    className="mx-auto"
+                    scale={1.5}
+                    loading={<div className="text-center py-8 text-gray-500">Loading enlarged page...</div>}
+                  />
+                </Document>
               </div>
             </div>
           </div>
