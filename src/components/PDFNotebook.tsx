@@ -1,4 +1,4 @@
-import React, { useState, useCallback, ChangeEvent } from 'react';
+import React, { useState, useCallback, ChangeEvent, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -24,6 +24,8 @@ const PDFNotebook: React.FC = () => {
   const [ocrTexts, setOcrTexts] = useState<OcrTexts>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [enlargedPage, setEnlargedPage] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('normal');
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: DocumentLoadSuccess) => {
@@ -75,49 +77,89 @@ const PDFNotebook: React.FC = () => {
     }));
   }, []);
 
-  // Calculate textarea height based on layout mode
+  const openEnlargedView = useCallback((pageNumber: number) => {
+    setEnlargedPage(pageNumber);
+    setIsModalOpen(true);
+  }, []);
+
+  const closeEnlargedView = useCallback(() => {
+    setEnlargedPage(null);
+    setIsModalOpen(false);
+  }, []);
+
+  // Layout mode helper functions
   const getTextareaHeight = useCallback((pageNumber: number) => {
     switch (layoutMode) {
       case 'normal':
         return 'h-64'; // Fixed height like current implementation
       case 'comparison':
-        return 'h-96'; // Larger height to better match PDF page height
+        // For comparison mode, make text box height match PDF page dimensions better
+        // At scale 0.8, a typical PDF page (A4: 210mm x 297mm) renders to approximately 600px height
+        // This translates to about h-96 (384px) which is close to the PDF page height
+        return 'h-96'; // Better match for PDF page height at 0.8 scale
       case 'reading':
-        // Calculate height based on content length to avoid scrolling
+        // For reading mode, calculate height to accommodate all content without scrolling
         const text = ocrTexts[pageNumber] || '';
+        if (!text.trim()) {
+          return 'min-h-32'; // Minimum height for empty text
+        }
+        
+        // Calculate required height based on content
         const lineCount = text.split('\n').length;
         const estimatedLines = Math.max(lineCount, Math.ceil(text.length / 60));
-        const totalLines = Math.max(4, estimatedLines + 2); // Add padding
+        const totalLines = Math.max(4, estimatedLines + 1); // Add small padding
         
-        if (totalLines <= 6) return 'h-24';
-        if (totalLines <= 10) return 'h-32';
-        if (totalLines <= 16) return 'h-48';
-        if (totalLines <= 24) return 'h-64';
-        if (totalLines <= 32) return 'h-80';
-        return 'h-96';
+        // Use min-height classes that allow expansion
+        if (totalLines <= 8) return 'min-h-32';
+        if (totalLines <= 16) return 'min-h-48';
+        if (totalLines <= 24) return 'min-h-64';
+        if (totalLines <= 32) return 'min-h-80';
+        if (totalLines <= 40) return 'min-h-96';
+        return 'min-h-96'; // Cap at a reasonable maximum
       default:
         return 'h-64';
     }
   }, [layoutMode, ocrTexts]);
 
-  // Get textarea resize behavior based on layout mode
   const getTextareaResize = () => {
     return layoutMode === 'reading' ? 'resize-y' : 'resize-none';
   };
 
-  // Get CSS classes for the main container based on layout mode
-  const getContainerClasses = () => {
-    switch (layoutMode) {
-      case 'normal':
-        return 'grid grid-cols-1 lg:grid-cols-2 gap-8';
-      case 'comparison':
-        return 'grid grid-cols-1 lg:grid-cols-2 gap-8';
-      case 'reading':
-        return 'space-y-12'; // Single column for reading mode
-      default:
-        return 'grid grid-cols-1 lg:grid-cols-2 gap-8';
+  const getTextareaStyle = useCallback((pageNumber: number) => {
+    if (layoutMode === 'reading') {
+      // For reading mode, make textarea auto-expand to fit content
+      const text = ocrTexts[pageNumber] || '';
+      const lineCount = Math.max(4, text.split('\n').length + 1);
+      const estimatedHeight = Math.max(128, lineCount * 24); // 24px per line, minimum 128px
+      return {
+        height: 'auto',
+        minHeight: `${estimatedHeight}px`
+      };
     }
-  };
+    return {};
+  }, [layoutMode, ocrTexts]);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isModalOpen) {
+        closeEnlargedView();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen, closeEnlargedView]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -201,128 +243,88 @@ const PDFNotebook: React.FC = () => {
 
         {/* PDF Display Area */}
         {pdfFile && (
-          <div className={getContainerClasses()}>
-            {layoutMode === 'reading' ? (
-              // Reading mode: Single column layout with PDF and text for each page
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* PDF Pages Column */}
+            <div className="space-y-8">
+              <h2 className="text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
+                PDF Pages
+              </h2>
               <Document
                 file={pdfFile}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
                 loading={<div className="text-center py-8 text-gray-500">Loading PDF...</div>}
-                className="space-y-12"
+                className="space-y-6"
               >
                 {numPages && Array.from({ length: numPages }, (_, index) => (
-                  <div key={index + 1} className="bg-white p-6 rounded-lg shadow-md">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                      Page {index + 1}
-                    </h3>
-                    
-                    {/* PDF Page */}
-                    <div className="mb-6">
-                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
+                    <div className="mb-2 flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600">
+                        Page {index + 1}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 hidden sm:inline">
+                          Click to enlarge
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {index + 1} of {numPages}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all duration-200 group" onClick={() => openEnlargedView(index + 1)}>
+                      <div className="relative">
                         <Page
                           pageNumber={index + 1}
                           className="mx-auto"
                           scale={0.8}
                           loading={<div className="text-center py-8 text-gray-500">Loading page...</div>}
                         />
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white rounded-full p-3 shadow-lg">
+                            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                            </svg>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    
-                    {/* OCR Text */}
-                    <div>
-                      <label 
-                        htmlFor={`ocr-text-${index + 1}`}
-                        className="block text-sm font-medium text-gray-700 mb-2"
-                      >
-                        OCR Text
-                        <span className="text-xs text-gray-400 ml-2">
-                          {ocrTexts[index + 1]?.length || 0} characters
-                        </span>
-                      </label>
-                      <textarea
-                        id={`ocr-text-${index + 1}`}
-                        value={ocrTexts[index + 1] || ''}
-                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleOcrTextChange(index + 1, e.target.value)}
-                        placeholder="Enter or paste OCR text for this page..."
-                        className={`w-full ${getTextareaHeight(index + 1)} p-3 border border-gray-300 rounded-md 
-                          focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${getTextareaResize()}
-                          text-sm leading-relaxed transition-colors`}
-                      />
                     </div>
                   </div>
                 ))}
               </Document>
-            ) : (
-              // Normal and Comparison modes: Two column layout
-              <>
-                {/* PDF Pages Column */}
-                <div className="space-y-8">
-                  <h2 className="text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
-                    PDF Pages
-                  </h2>
-                  <Document
-                    file={pdfFile}
-                    onLoadSuccess={onDocumentLoadSuccess}
-                    onLoadError={onDocumentLoadError}
-                    loading={<div className="text-center py-8 text-gray-500">Loading PDF...</div>}
-                    className="space-y-6"
-                  >
-                    {numPages && Array.from({ length: numPages }, (_, index) => (
-                      <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
-                        <div className="mb-2 flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-600">
-                            Page {index + 1}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {index + 1} of {numPages}
-                          </span>
-                        </div>
-                        <div className="border border-gray-200 rounded-lg overflow-hidden">
-                          <Page
-                            pageNumber={index + 1}
-                            className="mx-auto"
-                            scale={0.8}
-                            loading={<div className="text-center py-8 text-gray-500">Loading page...</div>}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </Document>
-                </div>
+            </div>
 
-                {/* OCR Text Column */}
-                <div className="space-y-8">
-                  <h2 className="text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
-                    OCR Text
-                  </h2>
-                  {numPages && Array.from({ length: numPages }, (_, index) => (
-                    <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
-                      <div className="mb-3 flex justify-between items-center">
-                        <label 
-                          htmlFor={`ocr-text-${index + 1}`}
-                          className="block text-sm font-medium text-gray-700"
-                        >
-                          Page {index + 1} OCR Text
-                        </label>
-                        <span className="text-xs text-gray-400">
-                          {ocrTexts[index + 1]?.length || 0} characters
-                        </span>
-                      </div>
-                      <textarea
-                        id={`ocr-text-${index + 1}`}
-                        value={ocrTexts[index + 1] || ''}
-                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleOcrTextChange(index + 1, e.target.value)}
-                        placeholder="Enter or paste OCR text for this page..."
-                        className={`w-full ${getTextareaHeight(index + 1)} p-3 border border-gray-300 rounded-md 
-                          focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${getTextareaResize()}
-                          text-sm leading-relaxed transition-colors`}
-                      />
-                    </div>
-                  ))}
+            {/* OCR Text Column */}
+            <div className="space-y-8">
+              <h2 className="text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
+                OCR Text
+              </h2>
+              {numPages && Array.from({ length: numPages }, (_, index) => (
+                <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
+                  <div className="mb-3 flex justify-between items-center">
+                    <label 
+                      htmlFor={`ocr-text-${index + 1}`}
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Page {index + 1} OCR Text
+                    </label>
+                    <span className="text-xs text-gray-400">
+                      {ocrTexts[index + 1]?.length || 0} characters
+                    </span>
+                  </div>
+                  <textarea
+                    id={`ocr-text-${index + 1}`}
+                    value={ocrTexts[index + 1] || ''}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleOcrTextChange(index + 1, e.target.value)}
+                    placeholder="Enter or paste OCR text for this page..."
+                    style={getTextareaStyle(index + 1)}
+                    className={`w-full ${getTextareaHeight(index + 1)} p-3 border border-gray-300 rounded-md 
+                      focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${getTextareaResize()}
+                      text-sm leading-relaxed transition-colors`}
+                  />
                 </div>
-              </>
-            )}
+              ))}
+            </div>
           </div>
         )}
 
@@ -342,6 +344,49 @@ const PDFNotebook: React.FC = () => {
                 <div className="text-sm text-gray-500">
                   <strong>Supported format:</strong> PDF files only
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enlarged PDF Modal */}
+        {isModalOpen && enlargedPage && pdfFile && (
+          <div 
+            className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4"
+            onClick={closeEnlargedView}
+          >
+            <div className="relative max-w-7xl max-h-full bg-white rounded-lg shadow-2xl">
+              {/* Close button */}
+              <button
+                onClick={closeEnlargedView}
+                className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
+                aria-label="Close enlarged view"
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              {/* Page info */}
+              <div className="absolute top-4 left-4 z-10 bg-white rounded-lg px-3 py-2 shadow-lg">
+                <span className="text-sm font-medium text-gray-700">
+                  Page {enlargedPage} of {numPages}
+                </span>
+              </div>
+
+              {/* PDF content */}
+              <div 
+                className="p-4 overflow-auto max-h-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Document file={pdfFile}>
+                  <Page
+                    pageNumber={enlargedPage}
+                    className="mx-auto"
+                    scale={1.5}
+                    loading={<div className="text-center py-8 text-gray-500">Loading enlarged page...</div>}
+                  />
+                </Document>
               </div>
             </div>
           </div>
