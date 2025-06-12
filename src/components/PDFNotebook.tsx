@@ -29,6 +29,7 @@ const PDFNotebook: React.FC = () => {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('normal');
   const [pdfVisible, setPdfVisible] = useState<boolean>(true);
   const [textVisible, setTextVisible] = useState<boolean>(true);
+  const [allTextVisible, setAllTextVisible] = useState<boolean>(true);
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: DocumentLoadSuccess) => {
     setNumPages(numPages);
@@ -101,16 +102,56 @@ const PDFNotebook: React.FC = () => {
     setTextVisible(prev => !prev);
   }, [pdfVisible, textVisible]);
 
+  const toggleAllTextVisibility = useCallback(() => {
+    setAllTextVisible(prev => !prev);
+  }, []);
+
+  // Generate concatenated text from all pages
+  const getAllConcatenatedText = useCallback(() => {
+    if (!numPages) return '';
+    
+    const texts: string[] = [];
+    for (let i = 1; i <= numPages; i++) {
+      const pageText = ocrTexts[i];
+      if (pageText && pageText.trim()) {
+        texts.push(`=== Page ${i} ===\n${pageText.trim()}`);
+      }
+    }
+    return texts.join('\n\n');
+  }, [numPages, ocrTexts]);
+
+  // Copy all text to clipboard
+  const copyAllTextToClipboard = useCallback(async () => {
+    const allText = getAllConcatenatedText();
+    if (!allText.trim()) {
+      alert('No text to copy');
+      return;
+    }
+    
+    try {
+      await navigator.clipboard.writeText(allText);
+      // You could add a toast notification here instead of alert
+      alert('All text copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+      alert('Failed to copy text to clipboard');
+    }
+  }, [getAllConcatenatedText]);
+
   // Generate dynamic grid class based on column visibility
   const getGridClass = useCallback(() => {
-    if (pdfVisible && textVisible) {
-      return "grid grid-cols-1 lg:grid-cols-2 gap-8 transition-all duration-300";
-    } else if (pdfVisible || textVisible) {
-      return "grid grid-cols-1 gap-8 transition-all duration-300";
-    } else {
+    const visibleColumns = [pdfVisible, textVisible, allTextVisible].filter(Boolean).length;
+    
+    if (visibleColumns === 0) {
       return "hidden";
+    } else if (visibleColumns === 1) {
+      return "grid grid-cols-1 gap-8 transition-all duration-300";
+    } else if (visibleColumns === 2) {
+      return "grid grid-cols-1 lg:grid-cols-2 gap-8 transition-all duration-300";
+    } else {
+      return "grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-300";
     }
-  }, [pdfVisible, textVisible]);
+  }, [pdfVisible, textVisible, allTextVisible]);
 
   // Layout mode helper functions
   const getTextareaHeight = useCallback((pageNumber: number) => {
@@ -290,6 +331,20 @@ const PDFNotebook: React.FC = () => {
                     </div>
                   </button>
                 )}
+                {!allTextVisible && (
+                  <button
+                    onClick={toggleAllTextVisibility}
+                    className="px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 616 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      All Text を表示
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -419,6 +474,56 @@ const PDFNotebook: React.FC = () => {
                   />
                 </div>
               ))}
+              </div>
+            )}
+
+            {/* All Text Column */}
+            {allTextVisible && (
+              <div className="space-y-8 transition-all duration-300 ease-in-out">
+                <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
+                  <h2>All Text</h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={copyAllTextToClipboard}
+                      className="px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-indigo-600 text-white hover:bg-indigo-700"
+                      title="Copy all text to clipboard"
+                    >
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy
+                      </div>
+                    </button>
+                    <button
+                      onClick={toggleAllTextVisibility}
+                      className="p-1 rounded transition-colors hover:bg-gray-200"
+                      aria-label="Hide All Text"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-md">
+                  <div className="mb-3 flex justify-between items-center">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Concatenated Text from All Pages
+                    </label>
+                    <span className="text-xs text-gray-400">
+                      {getAllConcatenatedText().length} characters
+                    </span>
+                  </div>
+                  <textarea
+                    value={getAllConcatenatedText()}
+                    readOnly
+                    placeholder="No text available. Add text to individual pages to see concatenated result here..."
+                    className="w-full h-96 p-3 border border-gray-300 rounded-md 
+                      focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                      text-sm leading-relaxed transition-colors bg-gray-50 resize-y"
+                  />
+                </div>
               </div>
             )}
           </div>
