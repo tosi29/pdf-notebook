@@ -27,6 +27,8 @@ const PDFNotebook: React.FC = () => {
   const [enlargedPage, setEnlargedPage] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('normal');
+  const [pdfVisible, setPdfVisible] = useState<boolean>(true);
+  const [textVisible, setTextVisible] = useState<boolean>(true);
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: DocumentLoadSuccess) => {
     setNumPages(numPages);
@@ -86,6 +88,29 @@ const PDFNotebook: React.FC = () => {
     setEnlargedPage(null);
     setIsModalOpen(false);
   }, []);
+
+  const togglePdfVisibility = useCallback(() => {
+    // Prevent both columns from being hidden
+    if (pdfVisible && !textVisible) return;
+    setPdfVisible(prev => !prev);
+  }, [pdfVisible, textVisible]);
+
+  const toggleTextVisibility = useCallback(() => {
+    // Prevent both columns from being hidden
+    if (textVisible && !pdfVisible) return;
+    setTextVisible(prev => !prev);
+  }, [pdfVisible, textVisible]);
+
+  // Generate dynamic grid class based on column visibility
+  const getGridClass = useCallback(() => {
+    if (pdfVisible && textVisible) {
+      return "grid grid-cols-1 lg:grid-cols-2 gap-8 transition-all duration-300";
+    } else if (pdfVisible || textVisible) {
+      return "grid grid-cols-1 gap-8 transition-all duration-300";
+    } else {
+      return "hidden";
+    }
+  }, [pdfVisible, textVisible]);
 
   // Layout mode helper functions
   const getTextareaHeight = useCallback((pageNumber: number) => {
@@ -229,6 +254,45 @@ const PDFNotebook: React.FC = () => {
               </div>
             </div>
           )}
+          
+          {/* Column Visibility Controls */}
+          {pdfFile && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                表示カラム
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {!pdfVisible && (
+                  <button
+                    onClick={togglePdfVisibility}
+                    className="px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      PDF Pages を表示
+                    </div>
+                  </button>
+                )}
+                {!textVisible && (
+                  <button
+                    onClick={toggleTextVisibility}
+                    className="px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      OCR Text を表示
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">{error}</p>
@@ -243,12 +307,27 @@ const PDFNotebook: React.FC = () => {
 
         {/* PDF Display Area */}
         {pdfFile && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className={getGridClass()}>
             {/* PDF Pages Column */}
-            <div className="space-y-8">
-              <h2 className="text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
-                PDF Pages
-              </h2>
+            {pdfVisible && (
+              <div className="space-y-8 transition-all duration-300 ease-in-out">
+                <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
+                  <h2>PDF Pages</h2>
+                  <button
+                    onClick={togglePdfVisibility}
+                    disabled={pdfVisible && !textVisible}
+                    className={`p-1 rounded transition-colors ${
+                      pdfVisible && !textVisible 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'hover:bg-gray-200'
+                    }`}
+                    aria-label="Hide PDF Pages"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               <Document
                 file={pdfFile}
                 onLoadSuccess={onDocumentLoadSuccess}
@@ -292,13 +371,29 @@ const PDFNotebook: React.FC = () => {
                   </div>
                 ))}
               </Document>
-            </div>
+              </div>
+            )}
 
-            {/* Text Column */}
-            <div className="space-y-8">
-              <h2 className="text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
-                Text
-              </h2>
+            {/* OCR Text Column */}
+            {textVisible && (
+              <div className="space-y-8 transition-all duration-300 ease-in-out">
+                <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
+                  <h2>OCR Text</h2>
+                  <button
+                    onClick={toggleTextVisibility}
+                    disabled={textVisible && !pdfVisible}
+                    className={`p-1 rounded transition-colors ${
+                      textVisible && !pdfVisible 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'hover:bg-gray-200'
+                    }`}
+                    aria-label="Hide OCR Text"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               {numPages && Array.from({ length: numPages }, (_, index) => (
                 <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
                   <div className="mb-3 flex justify-between items-center">
@@ -324,7 +419,8 @@ const PDFNotebook: React.FC = () => {
                   />
                 </div>
               ))}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
