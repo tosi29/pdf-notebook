@@ -10,9 +10,13 @@ const PDFNotebook = () => {
   const [pdfFile, setPdfFile] = useState(null);
   const [numPages, setNumPages] = useState(null);
   const [ocrTexts, setOcrTexts] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const onDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumPages(numPages);
+    setLoading(false);
+    setError(null);
     // Initialize empty OCR texts for each page
     const initialTexts = {};
     for (let i = 1; i <= numPages; i++) {
@@ -21,11 +25,33 @@ const PDFNotebook = () => {
     setOcrTexts(initialTexts);
   }, []);
 
+  const onDocumentLoadError = useCallback((error) => {
+    console.error('PDF loading error:', error);
+    setLoading(false);
+    setError('Failed to load PDF. Please make sure the file is a valid PDF.');
+  }, []);
+
   const onFileChange = useCallback((event) => {
     const file = event.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      setPdfFile(file);
+    if (file) {
+      if (file.type === 'application/pdf') {
+        setPdfFile(file);
+        setLoading(true);
+        setError(null);
+        setNumPages(null);
+        setOcrTexts({});
+      } else {
+        setError('Please select a valid PDF file.');
+      }
     }
+  }, []);
+
+  const clearPdf = useCallback(() => {
+    setPdfFile(null);
+    setNumPages(null);
+    setOcrTexts({});
+    setLoading(false);
+    setError(null);
   }, []);
 
   const handleOcrTextChange = useCallback((pageNumber, text) => {
@@ -41,19 +67,37 @@ const PDFNotebook = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">PDF Notebook</h1>
-          <div className="mb-4">
+          <div className="flex gap-4 items-center mb-4">
             <input
               type="file"
               accept=".pdf"
               onChange={onFileChange}
-              className="block w-full text-sm text-gray-500
+              className="flex-1 text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold
                 file:bg-indigo-50 file:text-indigo-700
                 hover:file:bg-indigo-100"
             />
+            {pdfFile && (
+              <button
+                onClick={clearPdf}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Clear
+              </button>
+            )}
           </div>
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+          {loading && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-600 text-sm">Loading PDF...</p>
+            </div>
+          )}
         </div>
 
         {/* PDF Display Area */}
@@ -67,20 +111,28 @@ const PDFNotebook = () => {
               <Document
                 file={pdfFile}
                 onLoadSuccess={onDocumentLoadSuccess}
+                onLoadError={onDocumentLoadError}
+                loading={<div className="text-center py-8 text-gray-500">Loading PDF...</div>}
                 className="space-y-6"
               >
                 {Array.from({ length: numPages }, (_, index) => (
                   <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
-                    <div className="mb-2">
+                    <div className="mb-2 flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-600">
                         Page {index + 1}
                       </span>
+                      <span className="text-xs text-gray-400">
+                        {index + 1} of {numPages}
+                      </span>
                     </div>
-                    <Page
-                      pageNumber={index + 1}
-                      className="mx-auto"
-                      scale={0.8}
-                    />
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <Page
+                        pageNumber={index + 1}
+                        className="mx-auto"
+                        scale={0.8}
+                        loading={<div className="text-center py-8 text-gray-500">Loading page...</div>}
+                      />
+                    </div>
                   </div>
                 ))}
               </Document>
@@ -93,13 +145,16 @@ const PDFNotebook = () => {
               </h2>
               {Array.from({ length: numPages }, (_, index) => (
                 <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
-                  <div className="mb-2">
+                  <div className="mb-3 flex justify-between items-center">
                     <label 
                       htmlFor={`ocr-text-${index + 1}`}
                       className="block text-sm font-medium text-gray-700"
                     >
                       Page {index + 1} OCR Text
                     </label>
+                    <span className="text-xs text-gray-400">
+                      {ocrTexts[index + 1]?.length || 0} characters
+                    </span>
                   </div>
                   <textarea
                     id={`ocr-text-${index + 1}`}
@@ -107,8 +162,8 @@ const PDFNotebook = () => {
                     onChange={(e) => handleOcrTextChange(index + 1, e.target.value)}
                     placeholder="Enter or paste OCR text for this page..."
                     className="w-full h-64 p-3 border border-gray-300 rounded-md 
-                      focus:ring-indigo-500 focus:border-indigo-500 resize-none
-                      text-sm leading-relaxed"
+                      focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none
+                      text-sm leading-relaxed transition-colors"
                   />
                 </div>
               ))}
@@ -117,10 +172,11 @@ const PDFNotebook = () => {
         )}
 
         {/* Instructions when no PDF is loaded */}
-        {!pdfFile && (
+        {!pdfFile && !loading && (
           <div className="text-center py-12">
             <div className="mx-auto max-w-md">
               <div className="bg-white rounded-lg shadow-md p-8">
+                <div className="text-4xl mb-4">📄</div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
                   Welcome to PDF Notebook
                 </h3>
@@ -129,7 +185,7 @@ const PDFNotebook = () => {
                   vertically and add OCR text notes for each page.
                 </p>
                 <div className="text-sm text-gray-500">
-                  Supported format: PDF files only
+                  <strong>Supported format:</strong> PDF files only
                 </div>
               </div>
             </div>
