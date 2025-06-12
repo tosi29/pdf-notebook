@@ -16,6 +16,8 @@ interface DocumentLoadSuccess {
   numPages: number;
 }
 
+type LayoutMode = 'normal' | 'comparison' | 'reading';
+
 const PDFNotebook: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
@@ -24,6 +26,7 @@ const PDFNotebook: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [enlargedPage, setEnlargedPage] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('normal');
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: DocumentLoadSuccess) => {
     setNumPages(numPages);
@@ -84,6 +87,58 @@ const PDFNotebook: React.FC = () => {
     setIsModalOpen(false);
   }, []);
 
+  // Layout mode helper functions
+  const getTextareaHeight = useCallback((pageNumber: number) => {
+    switch (layoutMode) {
+      case 'normal':
+        return 'h-64'; // Fixed height like current implementation
+      case 'comparison':
+        // For comparison mode, make text box height better match PDF page dimensions
+        // PDF pages at 0.8 scale typically render around 500-600px height for A4
+        // Using a custom height to better match PDF page height
+        return 'h-500'; // Much better match for PDF page height at 0.8 scale
+      case 'reading':
+        // For reading mode, calculate height to accommodate all content without scrolling
+        const text = ocrTexts[pageNumber] || '';
+        if (!text.trim()) {
+          return 'min-h-32'; // Minimum height for empty text
+        }
+        
+        // Calculate required height based on content
+        const lineCount = text.split('\n').length;
+        const estimatedLines = Math.max(lineCount, Math.ceil(text.length / 60));
+        const totalLines = Math.max(4, estimatedLines + 1); // Add small padding
+        
+        // Use min-height classes that allow expansion
+        if (totalLines <= 8) return 'min-h-32';
+        if (totalLines <= 16) return 'min-h-48';
+        if (totalLines <= 24) return 'min-h-64';
+        if (totalLines <= 32) return 'min-h-80';
+        if (totalLines <= 40) return 'min-h-96';
+        return 'min-h-96'; // Cap at a reasonable maximum
+      default:
+        return 'h-64';
+    }
+  }, [layoutMode, ocrTexts]);
+
+  const getTextareaResize = () => {
+    return layoutMode === 'reading' ? 'resize-y' : 'resize-none';
+  };
+
+  const getTextareaStyle = useCallback((pageNumber: number) => {
+    if (layoutMode === 'reading') {
+      // For reading mode, make textarea auto-expand to fit content
+      const text = ocrTexts[pageNumber] || '';
+      const lineCount = Math.max(4, text.split('\n').length + 1);
+      const estimatedHeight = Math.max(128, lineCount * 24); // 24px per line, minimum 128px
+      return {
+        height: 'auto',
+        minHeight: `${estimatedHeight}px`
+      };
+    }
+    return {};
+  }, [layoutMode, ocrTexts]);
+
   // Handle escape key to close modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -133,6 +188,47 @@ const PDFNotebook: React.FC = () => {
               </button>
             )}
           </div>
+          
+          {/* Layout Mode Selector */}
+          {pdfFile && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                レイアウトモード
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setLayoutMode('normal')}
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    layoutMode === 'normal'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  通常
+                </button>
+                <button
+                  onClick={() => setLayoutMode('comparison')}
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    layoutMode === 'comparison'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  比較
+                </button>
+                <button
+                  onClick={() => setLayoutMode('reading')}
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    layoutMode === 'reading'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  通読
+                </button>
+              </div>
+            </div>
+          )}
           {error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">{error}</p>
@@ -221,9 +317,10 @@ const PDFNotebook: React.FC = () => {
                     value={ocrTexts[index + 1] || ''}
                     onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleOcrTextChange(index + 1, e.target.value)}
                     placeholder="Enter or paste OCR text for this page..."
-                    className="w-full h-64 p-3 border border-gray-300 rounded-md 
-                      focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none
-                      text-sm leading-relaxed transition-colors"
+                    style={getTextareaStyle(index + 1)}
+                    className={`w-full ${getTextareaHeight(index + 1)} p-3 border border-gray-300 rounded-md 
+                      focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${getTextareaResize()}
+                      text-sm leading-relaxed transition-colors`}
                   />
                 </div>
               ))}
