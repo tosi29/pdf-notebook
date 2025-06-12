@@ -45,7 +45,9 @@ const PDFNotebook: React.FC = () => {
     // Extract text from each page
     if (pdfFile) {
       try {
-        const pdf = await pdfjs.getDocument(pdfFile).promise;
+        // Convert File to ArrayBuffer for PDF.js
+        const arrayBuffer = await pdfFile.arrayBuffer();
+        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
         const extractedTexts: OcrTexts = {};
         
         for (let pageNum = 1; pageNum <= numPages; pageNum++) {
