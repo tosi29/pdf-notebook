@@ -30,17 +30,46 @@ const PDFNotebook: React.FC = () => {
   const [pdfVisible, setPdfVisible] = useState<boolean>(true);
   const [textVisible, setTextVisible] = useState<boolean>(true);
 
-  const onDocumentLoadSuccess = useCallback(({ numPages }: DocumentLoadSuccess) => {
+  const onDocumentLoadSuccess = useCallback(async ({ numPages }: DocumentLoadSuccess) => {
     setNumPages(numPages);
     setLoading(false);
     setError(null);
+    
     // Initialize empty OCR texts for each page
     const initialTexts: OcrTexts = {};
     for (let i = 1; i <= numPages; i++) {
       initialTexts[i] = '';
     }
     setOcrTexts(initialTexts);
-  }, []);
+    
+    // Extract text from each page
+    if (pdfFile) {
+      try {
+        const pdf = await pdfjs.getDocument(pdfFile).promise;
+        const extractedTexts: OcrTexts = {};
+        
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          try {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .filter((item): item is { str: string } => 'str' in item)
+              .map((item) => item.str)
+              .join(' ');
+            extractedTexts[pageNum] = pageText;
+          } catch (pageError) {
+            console.warn(`Failed to extract text from page ${pageNum}:`, pageError);
+            extractedTexts[pageNum] = '';
+          }
+        }
+        
+        setOcrTexts(extractedTexts);
+      } catch (extractError) {
+        console.error('Failed to extract text from PDF:', extractError);
+        // Keep the empty texts if extraction fails
+      }
+    }
+  }, [pdfFile]);
 
   const onDocumentLoadError = useCallback((error: Error) => {
     console.error('PDF loading error:', error);
