@@ -90,19 +90,23 @@ const PDFNotebook: React.FC = () => {
   }, []);
 
   const togglePdfVisibility = useCallback(() => {
+    // Prevent both columns from being hidden
+    if (pdfVisible && !textVisible) return;
     setPdfVisible(prev => !prev);
-  }, []);
+  }, [pdfVisible, textVisible]);
 
   const toggleTextVisibility = useCallback(() => {
+    // Prevent both columns from being hidden
+    if (textVisible && !pdfVisible) return;
     setTextVisible(prev => !prev);
-  }, []);
+  }, [pdfVisible, textVisible]);
 
   // Generate dynamic grid class based on column visibility
   const getGridClass = useCallback(() => {
     if (pdfVisible && textVisible) {
-      return "grid grid-cols-1 lg:grid-cols-2 gap-8";
+      return "grid grid-cols-1 lg:grid-cols-2 gap-8 transition-all duration-300";
     } else if (pdfVisible || textVisible) {
-      return "grid grid-cols-1 gap-8";
+      return "grid grid-cols-1 gap-8 transition-all duration-300";
     } else {
       return "hidden";
     }
@@ -306,16 +310,21 @@ const PDFNotebook: React.FC = () => {
           <div className={getGridClass()}>
             {/* PDF Pages Column */}
             {pdfVisible && (
-              <div className="space-y-8">
+              <div className="space-y-8 transition-all duration-300 ease-in-out">
                 <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
                   <h2>PDF Pages</h2>
                   <button
                     onClick={togglePdfVisibility}
-                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                    aria-label="Toggle PDF Pages visibility"
+                    disabled={pdfVisible && !textVisible}
+                    className={`p-1 rounded transition-colors ${
+                      pdfVisible && !textVisible 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'hover:bg-gray-200'
+                    }`}
+                    aria-label="Hide PDF Pages"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
@@ -367,16 +376,21 @@ const PDFNotebook: React.FC = () => {
 
             {/* OCR Text Column */}
             {textVisible && (
-              <div className="space-y-8">
+              <div className="space-y-8 transition-all duration-300 ease-in-out">
                 <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
                   <h2>OCR Text</h2>
                   <button
                     onClick={toggleTextVisibility}
-                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                    aria-label="Toggle OCR Text visibility"
+                    disabled={textVisible && !pdfVisible}
+                    className={`p-1 rounded transition-colors ${
+                      textVisible && !pdfVisible 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'hover:bg-gray-200'
+                    }`}
+                    aria-label="Hide OCR Text"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
