@@ -190,10 +190,10 @@ const PDFNotebook: React.FC = () => {
       case 'normal':
         return 'h-64'; // Fixed height like current implementation
       case 'comparison':
-        // For comparison mode, make text box height better match PDF page dimensions
-        // PDF pages at 0.8 scale typically render around 500-600px height for A4
-        // Using a custom height to better match PDF page height
-        return 'h-500'; // Much better match for PDF page height at 0.8 scale
+        // For comparison mode, make text box height exactly match PDF container height
+        // Adjusted height to better match actual PDF rendering at 0.8 scale
+        // Testing with 580px as a compromise between current 500px and calculated 674px
+        return 'h-580'; // Better match for PDF container height
       case 'reading':
         // For reading mode, calculate height to accommodate all content without scrolling
         const text = ocrTexts[pageNumber] || '';
@@ -482,7 +482,7 @@ const PDFNotebook: React.FC = () => {
                 </div>
               {numPages && Array.from({ length: numPages }, (_, index) => (
                 <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
-                  <div className="mb-3 flex justify-between items-center">
+                  <div className={`${layoutMode === 'comparison' ? 'mb-2' : 'mb-3'} flex justify-between items-center`}>
                     <label 
                       htmlFor={`ocr-text-${index + 1}`}
                       className="block text-sm font-medium text-gray-700"
