@@ -362,46 +362,7 @@ const PDFNotebook: React.FC = () => {
             )}
           </div>
           
-          {/* Layout Mode Selector */}
-          {pdfFile && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                レイアウトモード
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setLayoutMode('normal')}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    layoutMode === 'normal'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  通常
-                </button>
-                <button
-                  onClick={() => setLayoutMode('comparison')}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    layoutMode === 'comparison'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  比較
-                </button>
-                <button
-                  onClick={() => setLayoutMode('reading')}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    layoutMode === 'reading'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  通読
-                </button>
-              </div>
-            </div>
-          )}
+
           
           {/* Column Visibility Controls */}
           {pdfFile && (
@@ -541,20 +502,58 @@ const PDFNotebook: React.FC = () => {
               <div className="space-y-8 transition-all duration-300 ease-in-out">
                 <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
                   <h2>Text</h2>
-                  <button
-                    onClick={toggleTextVisibility}
-                    disabled={textVisible && !pdfVisible}
-                    className={`p-1 rounded transition-colors ${
-                      textVisible && !pdfVisible 
-                        ? 'text-gray-400 cursor-not-allowed' 
-                        : 'hover:bg-gray-200'
-                    }`}
-                    aria-label="Hide Text"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Layout Mode Selector */}
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setLayoutMode('normal')}
+                        className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                          layoutMode === 'normal'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title="通常モード"
+                      >
+                        通常
+                      </button>
+                      <button
+                        onClick={() => setLayoutMode('comparison')}
+                        className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                          layoutMode === 'comparison'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title="比較モード"
+                      >
+                        比較
+                      </button>
+                      <button
+                        onClick={() => setLayoutMode('reading')}
+                        className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                          layoutMode === 'reading'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title="通読モード"
+                      >
+                        通読
+                      </button>
+                    </div>
+                    <button
+                      onClick={toggleTextVisibility}
+                      disabled={textVisible && !pdfVisible}
+                      className={`p-1 rounded transition-colors ${
+                        textVisible && !pdfVisible 
+                          ? 'text-gray-400 cursor-not-allowed' 
+                          : 'hover:bg-gray-200'
+                      }`}
+                      aria-label="Hide Text"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               {numPages && Array.from({ length: numPages }, (_, index) => (
                 <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
