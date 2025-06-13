@@ -192,8 +192,8 @@ const PDFNotebook: React.FC = () => {
       case 'comparison':
         // For comparison mode, make text box height exactly match PDF container height
         // Adjusted height to better match actual PDF rendering at 0.8 scale
-        // Testing with 580px as a compromise between current 500px and calculated 674px
-        return 'h-580'; // Better match for PDF container height
+        // Using 650px as closer approximation to theoretical A4 height (674px at 0.8 scale)
+        return 'h-650'; // Better match for PDF container height
       case 'reading':
         // For reading mode, calculate height to accommodate all content without scrolling
         const text = ocrTexts[pageNumber] || '';

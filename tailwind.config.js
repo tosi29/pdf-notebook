@@ -9,6 +9,7 @@ export default {
       height: {
         '500': '500px',
         '580': '580px',
+        '650': '650px',
       }
     },
   },
