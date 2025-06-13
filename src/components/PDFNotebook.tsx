@@ -8,7 +8,7 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 // Type definitions
-interface OcrTexts {
+interface Texts {
   [pageNumber: number]: string;
 }
 
@@ -21,7 +21,7 @@ type LayoutMode = 'normal' | 'comparison' | 'reading';
 const PDFNotebook: React.FC = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
-  const [ocrTexts, setOcrTexts] = useState<OcrTexts>({});
+  const [texts, setTexts] = useState<Texts>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [enlargedPage, setEnlargedPage] = useState<number | null>(null);
@@ -43,12 +43,12 @@ const PDFNotebook: React.FC = () => {
     setLoading(false);
     setError(null);
     
-    // Initialize empty OCR texts for each page
-    const initialTexts: OcrTexts = {};
+    // Initialize empty texts for each page
+    const initialTexts: Texts = {};
     for (let i = 1; i <= numPages; i++) {
       initialTexts[i] = '';
     }
-    setOcrTexts(initialTexts);
+    setTexts(initialTexts);
     
     // Extract text from each page and get page dimensions
     if (pdfFile) {
@@ -56,7 +56,7 @@ const PDFNotebook: React.FC = () => {
         // Convert File to ArrayBuffer for PDF.js
         const arrayBuffer = await pdfFile.arrayBuffer();
         const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-        const extractedTexts: OcrTexts = {};
+        const extractedTexts: Texts = {};
         
         // Get the first page to determine dimensions
         if (numPages > 0) {
@@ -80,7 +80,7 @@ const PDFNotebook: React.FC = () => {
           }
         }
         
-        setOcrTexts(extractedTexts);
+        setTexts(extractedTexts);
       } catch (extractError) {
         console.error('Failed to extract text from PDF:', extractError);
         // Keep the empty texts if extraction fails
@@ -102,7 +102,7 @@ const PDFNotebook: React.FC = () => {
         setLoading(true);
         setError(null);
         setNumPages(null);
-        setOcrTexts({});
+        setTexts({});
       } else {
         setLoading(false);
         setError('Please select a valid PDF file.');
@@ -113,13 +113,13 @@ const PDFNotebook: React.FC = () => {
   const clearPdf = useCallback(() => {
     setPdfFile(null);
     setNumPages(null);
-    setOcrTexts({});
+    setTexts({});
     setLoading(false);
     setError(null);
   }, []);
 
-  const handleOcrTextChange = useCallback((pageNumber: number, text: string) => {
-    setOcrTexts(prev => ({
+  const handleTextChange = useCallback((pageNumber: number, text: string) => {
+    setTexts(prev => ({
       ...prev,
       [pageNumber]: text
     }));
@@ -157,13 +157,13 @@ const PDFNotebook: React.FC = () => {
     
     const texts: string[] = [];
     for (let i = 1; i <= numPages; i++) {
-      const pageText = ocrTexts[i];
+      const pageText = texts[i];
       if (pageText && pageText.trim()) {
         texts.push(`=== Page ${i} ===\n${pageText.trim()}`);
       }
     }
     return texts.join('\n\n');
-  }, [numPages, ocrTexts]);
+  }, [numPages, texts]);
 
   // Copy all text to clipboard
   const copyAllTextToClipboard = useCallback(async () => {
@@ -272,7 +272,7 @@ const PDFNotebook: React.FC = () => {
         return 'h-650'; // Better match for PDF container height
       case 'reading':
         // For reading mode, calculate height to accommodate all content without scrolling
-        const text = ocrTexts[pageNumber] || '';
+        const text = texts[pageNumber] || '';
         if (!text.trim()) {
           return 'min-h-32'; // Minimum height for empty text
         }
@@ -292,7 +292,7 @@ const PDFNotebook: React.FC = () => {
       default:
         return 'h-64';
     }
-  }, [layoutMode, ocrTexts]);
+  }, [layoutMode, texts]);
 
   const getTextareaResize = () => {
     return layoutMode === 'reading' ? 'resize-y' : 'resize-none';
@@ -301,7 +301,7 @@ const PDFNotebook: React.FC = () => {
   const getTextareaStyle = useCallback((pageNumber: number) => {
     if (layoutMode === 'reading') {
       // For reading mode, make textarea auto-expand to fit content
-      const text = ocrTexts[pageNumber] || '';
+      const text = texts[pageNumber] || '';
       const lineCount = Math.max(4, text.split('\n').length + 1);
       const estimatedHeight = Math.max(128, lineCount * 24); // 24px per line, minimum 128px
       return {
@@ -310,7 +310,7 @@ const PDFNotebook: React.FC = () => {
       };
     }
     return {};
-  }, [layoutMode, ocrTexts]);
+  }, [layoutMode, texts]);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -434,7 +434,7 @@ const PDFNotebook: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      OCR Text を表示
+                      Text を表示
                     </div>
                   </button>
                 )}
@@ -540,7 +540,7 @@ const PDFNotebook: React.FC = () => {
             {textVisible && (
               <div className="space-y-8 transition-all duration-300 ease-in-out">
                 <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
-                  <h2>OCR Text</h2>
+                  <h2>Text</h2>
                   <button
                     onClick={toggleTextVisibility}
                     disabled={textVisible && !pdfVisible}
@@ -549,7 +549,7 @@ const PDFNotebook: React.FC = () => {
                         ? 'text-gray-400 cursor-not-allowed' 
                         : 'hover:bg-gray-200'
                     }`}
-                    aria-label="Hide OCR Text"
+                    aria-label="Hide Text"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -560,19 +560,19 @@ const PDFNotebook: React.FC = () => {
                 <div key={index + 1} className="bg-white p-4 rounded-lg shadow-md">
                   <div className={`${layoutMode === 'comparison' ? 'mb-2' : 'mb-3'} flex justify-between items-center`}>
                     <label 
-                      htmlFor={`ocr-text-${index + 1}`}
+                      htmlFor={`text-${index + 1}`}
                       className="block text-sm font-medium text-gray-700"
                     >
                       Page {index + 1} Text
                     </label>
                     <span className="text-xs text-gray-400">
-                      {ocrTexts[index + 1]?.length || 0} characters
+                      {texts[index + 1]?.length || 0} characters
                     </span>
                   </div>
                   <textarea
-                    id={`ocr-text-${index + 1}`}
-                    value={ocrTexts[index + 1] || ''}
-                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleOcrTextChange(index + 1, e.target.value)}
+                    id={`text-${index + 1}`}
+                    value={texts[index + 1] || ''}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleTextChange(index + 1, e.target.value)}
                     placeholder="Enter or paste text for this page..."
                     style={getTextareaStyle(index + 1)}
                     className={`w-full ${getTextareaHeight(index + 1)} p-3 border border-gray-300 rounded-md 
