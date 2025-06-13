@@ -1,4 +1,4 @@
-import React, { useState, useCallback, ChangeEvent, useEffect } from 'react';
+import React, { useState, useCallback, ChangeEvent, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -30,6 +30,13 @@ const PDFNotebook: React.FC = () => {
   const [pdfVisible, setPdfVisible] = useState<boolean>(true);
   const [textVisible, setTextVisible] = useState<boolean>(true);
   const [allTextVisible, setAllTextVisible] = useState<boolean>(true);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [modalContainerWidth, setModalContainerWidth] = useState<number>(0);
+  const [pdfPageWidth, setPdfPageWidth] = useState<number>(0);
+  
+  // Refs for measuring container dimensions
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
+  const modalContainerRef = useRef<HTMLDivElement>(null);
 
   const onDocumentLoadSuccess = useCallback(async ({ numPages }: DocumentLoadSuccess) => {
     setNumPages(numPages);
@@ -43,13 +50,20 @@ const PDFNotebook: React.FC = () => {
     }
     setOcrTexts(initialTexts);
     
-    // Extract text from each page
+    // Extract text from each page and get page dimensions
     if (pdfFile) {
       try {
         // Convert File to ArrayBuffer for PDF.js
         const arrayBuffer = await pdfFile.arrayBuffer();
         const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
         const extractedTexts: OcrTexts = {};
+        
+        // Get the first page to determine dimensions
+        if (numPages > 0) {
+          const firstPage = await pdf.getPage(1);
+          const viewport = firstPage.getViewport({ scale: 1.0 });
+          setPdfPageWidth(viewport.width);
+        }
         
         for (let pageNum = 1; pageNum <= numPages; pageNum++) {
           try {
@@ -168,6 +182,68 @@ const PDFNotebook: React.FC = () => {
       alert('Failed to copy text to clipboard');
     }
   }, [getAllConcatenatedText]);
+
+  // Calculate responsive scale for PDF pages
+  const calculateResponsiveScale = useCallback((containerWidth: number, isModal: boolean = false) => {
+    if (!pdfPageWidth || !containerWidth) {
+      // Fallback to original fixed scales
+      return isModal ? 1.5 : 0.8;
+    }
+    
+    // For modal, aim to use more of the available width while still fitting comfortably
+    const targetWidthRatio = isModal ? 0.85 : 0.95;
+    const availableWidth = containerWidth * targetWidthRatio;
+    const calculatedScale = availableWidth / pdfPageWidth;
+    
+    // Set reasonable bounds for the scale
+    const minScale = 0.3;
+    const maxScale = isModal ? 3.0 : 1.5;
+    
+    return Math.max(minScale, Math.min(maxScale, calculatedScale));
+  }, [pdfPageWidth]);
+
+  // Update container width measurements
+  const updateContainerWidth = useCallback(() => {
+    if (pdfContainerRef.current) {
+      const rect = pdfContainerRef.current.getBoundingClientRect();
+      setContainerWidth(rect.width);
+    }
+  }, []);
+
+  // Update modal container width measurements
+  const updateModalContainerWidth = useCallback(() => {
+    if (modalContainerRef.current) {
+      const rect = modalContainerRef.current.getBoundingClientRect();
+      setModalContainerWidth(rect.width);
+    }
+  }, []);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      updateContainerWidth();
+      updateModalContainerWidth();
+    };
+
+    // Update container width on mount and when layout changes
+    updateContainerWidth();
+    
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [updateContainerWidth, updateModalContainerWidth, pdfVisible, textVisible, allTextVisible]);
+
+  // Update modal container width when modal opens
+  useEffect(() => {
+    if (isModalOpen) {
+      // Small delay to ensure modal is rendered
+      const timer = setTimeout(() => {
+        updateModalContainerWidth();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isModalOpen, updateModalContainerWidth]);
 
   // Generate dynamic grid class based on column visibility
   const getGridClass = useCallback(() => {
@@ -396,7 +472,7 @@ const PDFNotebook: React.FC = () => {
           <div className={getGridClass()}>
             {/* PDF Pages Column */}
             {pdfVisible && (
-              <div className="space-y-8 transition-all duration-300 ease-in-out">
+              <div className="space-y-8 transition-all duration-300 ease-in-out" ref={pdfContainerRef}>
                 <div className="flex items-center justify-between text-xl font-semibold text-gray-700 sticky top-0 bg-gray-100 py-2">
                   <h2>PDF Pages</h2>
                   <button
@@ -441,7 +517,7 @@ const PDFNotebook: React.FC = () => {
                         <Page
                           pageNumber={index + 1}
                           className="mx-auto"
-                          scale={0.8}
+                          scale={calculateResponsiveScale(containerWidth)}
                           loading={<div className="text-center py-8 text-gray-500">Loading page...</div>}
                         />
                         {/* Hover overlay */}
@@ -587,7 +663,7 @@ const PDFNotebook: React.FC = () => {
             className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4"
             onClick={closeEnlargedView}
           >
-            <div className="relative max-w-7xl max-h-full bg-white rounded-lg shadow-2xl">
+            <div className="relative max-w-7xl max-h-full bg-white rounded-lg shadow-2xl" ref={modalContainerRef}>
               {/* Close button */}
               <button
                 onClick={closeEnlargedView}
@@ -615,7 +691,7 @@ const PDFNotebook: React.FC = () => {
                   <Page
                     pageNumber={enlargedPage}
                     className="mx-auto"
-                    scale={1.5}
+                    scale={calculateResponsiveScale(modalContainerWidth || window.innerWidth - 100, true)}
                     loading={<div className="text-center py-8 text-gray-500">Loading enlarged page...</div>}
                   />
                 </Document>
