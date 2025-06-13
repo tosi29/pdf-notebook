@@ -155,14 +155,14 @@ const PDFNotebook: React.FC = () => {
   const getAllConcatenatedText = useCallback(() => {
     if (!numPages) return '';
     
-    const texts: string[] = [];
+    const concatenatedTexts: string[] = [];
     for (let i = 1; i <= numPages; i++) {
       const pageText = texts[i];
       if (pageText && pageText.trim()) {
-        texts.push(`=== Page ${i} ===\n${pageText.trim()}`);
+        concatenatedTexts.push(`=== Page ${i} ===\n${pageText.trim()}`);
       }
     }
-    return texts.join('\n\n');
+    return concatenatedTexts.join('\n\n');
   }, [numPages, texts]);
 
   // Copy all text to clipboard
