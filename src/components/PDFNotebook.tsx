@@ -136,20 +136,25 @@ const PDFNotebook: React.FC = () => {
   }, []);
 
   const togglePdfVisibility = useCallback(() => {
-    // Prevent both columns from being hidden
-    if (pdfVisible && !textVisible) return;
+    // Prevent all columns from being hidden - at least one must remain visible
+    const visibleColumns = [textVisible, allTextVisible].filter(Boolean).length;
+    if (pdfVisible && visibleColumns === 0) return;
     setPdfVisible(prev => !prev);
-  }, [pdfVisible, textVisible]);
+  }, [pdfVisible, textVisible, allTextVisible]);
 
   const toggleTextVisibility = useCallback(() => {
-    // Prevent both columns from being hidden
-    if (textVisible && !pdfVisible) return;
+    // Prevent all columns from being hidden - at least one must remain visible
+    const visibleColumns = [pdfVisible, allTextVisible].filter(Boolean).length;
+    if (textVisible && visibleColumns === 0) return;
     setTextVisible(prev => !prev);
-  }, [pdfVisible, textVisible]);
+  }, [pdfVisible, textVisible, allTextVisible]);
 
   const toggleAllTextVisibility = useCallback(() => {
+    // Prevent all columns from being hidden - at least one must remain visible
+    const visibleColumns = [pdfVisible, textVisible].filter(Boolean).length;
+    if (allTextVisible && visibleColumns === 0) return;
     setAllTextVisible(prev => !prev);
-  }, []);
+  }, [pdfVisible, textVisible, allTextVisible]);
 
   // Generate concatenated text from all pages
   const getAllConcatenatedText = useCallback(() => {
@@ -438,9 +443,9 @@ const PDFNotebook: React.FC = () => {
                   <h2>PDF Pages</h2>
                   <button
                     onClick={togglePdfVisibility}
-                    disabled={pdfVisible && !textVisible}
+                    disabled={pdfVisible && !textVisible && !allTextVisible}
                     className={`p-1 rounded transition-colors ${
-                      pdfVisible && !textVisible 
+                      pdfVisible && !textVisible && !allTextVisible
                         ? 'text-gray-400 cursor-not-allowed' 
                         : 'hover:bg-gray-200'
                     }`}
@@ -541,9 +546,9 @@ const PDFNotebook: React.FC = () => {
                     </div>
                     <button
                       onClick={toggleTextVisibility}
-                      disabled={textVisible && !pdfVisible}
+                      disabled={textVisible && !pdfVisible && !allTextVisible}
                       className={`p-1 rounded transition-colors ${
-                        textVisible && !pdfVisible 
+                        textVisible && !pdfVisible && !allTextVisible
                           ? 'text-gray-400 cursor-not-allowed' 
                           : 'hover:bg-gray-200'
                       }`}
@@ -603,7 +608,12 @@ const PDFNotebook: React.FC = () => {
                     </button>
                     <button
                       onClick={toggleAllTextVisibility}
-                      className="p-1 rounded transition-colors hover:bg-gray-200"
+                      disabled={allTextVisible && !pdfVisible && !textVisible}
+                      className={`p-1 rounded transition-colors ${
+                        allTextVisible && !pdfVisible && !textVisible
+                          ? 'text-gray-400 cursor-not-allowed' 
+                          : 'hover:bg-gray-200'
+                      }`}
                       aria-label="Hide All Text"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
