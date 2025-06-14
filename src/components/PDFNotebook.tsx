@@ -70,8 +70,8 @@ const PDFNotebook: React.FC = () => {
             const page = await pdf.getPage(pageNum);
             const textContent = await page.getTextContent();
             const pageText = textContent.items
-              .filter((item): item is { str: string } => 'str' in item)
-              .map((item) => item.str)
+              .filter((item: any) => item.str)
+              .map((item: any) => item.str)
               .join(' ');
             extractedTexts[pageNum] = pageText;
           } catch (pageError) {
@@ -267,9 +267,8 @@ const PDFNotebook: React.FC = () => {
         return 'h-64'; // Fixed height like current implementation
       case 'comparison':
         // For comparison mode, make text box height exactly match PDF container height
-        // Adjusted height to better match actual PDF rendering at 0.8 scale
-        // Using 650px as closer approximation to theoretical A4 height (674px at 0.8 scale)
-        return 'h-650'; // Better match for PDF container height
+        // Using a large fixed height to better match PDF rendering
+        return 'h-96'; // 384px - a reasonable height for comparison mode
       case 'reading':
         // For reading mode, calculate height to accommodate all content without scrolling
         const text = texts[pageNumber] || '';
